@@ -12,18 +12,19 @@ import java.util.concurrent.TimeUnit;
 import javax.swing.JFrame;
 
 public class Router extends Node {
-	static final int DEFAULT_SRC_PORT = 55000;
-	static final int CC_PORT = 40000;
+	static final int DEFAULT_SRC_PORT = 55000; // Port of the router
+	static final int CC_PORT = 40000;          // Port of the control
 
-	static final int HEADER_LENGTH = 2;
-	static final int TYPE_POS = 0;
-	static final int LENGTH_POS = 1;
-	static final int ACKCODE_POS = 1;
+	static final int HEADER_LENGTH = 2; // Fixed length of the header
+	static final int TYPE_POS = 0;      // Position of the type within the header
+	static final int LENGTH_POS = 1;    // Position of the length of payload
+	static final int ACKCODE_POS = 1;   // Position of the acknowledgement type in the header
 
 	static final byte TYPE_UNKNOWN = 0;
 	static final byte TYPE_MESSAGE = 1;
 	static final byte TYPE_REQUEST = 2;
 	static final byte TYPE_MODIFY  = 3;
+	static final byte TYPE_HELLO = 4 ;
 
 	static String name;
 	static int port;
@@ -38,13 +39,22 @@ public class Router extends Node {
 			socket= new DatagramSocket(port);
 			address1 = new InetSocketAddress("",port);
 			listener.go();
+			sayHello();
 		}
 		catch(java.lang.Exception e) {e.printStackTrace();}
 	}
-	public abstract class TimerTask extends Object implements Runnable{
-		public void run() {
-			notifyAll();
-		}
+
+	public synchronized void sayHello() throws Exception {
+		byte[] data= null;
+		byte[] buffer= null;
+		DatagramPacket packet= null;
+		data = new byte[HEADER_LENGTH];
+		data[TYPE_POS] = TYPE_HELLO;
+		data[LENGTH_POS] = 0;
+		packet= new DatagramPacket(data, data.length);
+		packet.setSocketAddress(new InetSocketAddress("",CC_PORT));
+		socket.send(packet);
+		terminal.println("Said hello to control");
 	}
 
 	/**
@@ -72,12 +82,11 @@ public class Router extends Node {
 					requestTable(address);
 					packet.setSocketAddress(temptemp);
 					socket.send(packet);
-					TimeUnit.SECONDS.sleep(1);
 				}
 				else {
 					dstAddress = map.get(address);
 					HashMap<String,InetSocketAddress> temp = map;
-					System.out.println("Sending packet from "+s+" to "+dstAddress);
+				//	System.out.println("Sending packet from "+s+" to "+dstAddress);
 					packet.setSocketAddress(dstAddress);
 					socket.send(packet);
 				}
@@ -89,7 +98,6 @@ public class Router extends Node {
 				map.put(newAddress, Iaddr);
 				terminal.println("Placed "+newAddress+" and "+Iaddr);
 				break;
-				//todo
 			default:
 				terminal.println("Unexpected packet" + packet.toString());
 			}
@@ -116,29 +124,11 @@ public class Router extends Node {
 		packet.setSocketAddress(new InetSocketAddress("",CC_PORT));
 		socket.send(packet);
 		terminal.println("Request sent for route to "+dst);
-		
+		TimeUnit.SECONDS.sleep(1);
 	}
 
-
 	public synchronized void start() throws Exception {
-		terminal.println("I am listening to port "+port);
 		this.wait();
 	}
 
-	public void dummyNotify() {
-		notifyAll();
-	}
-
-	public static void main(String[] args) {
-		//		try {			
-		Router router = new Router(new Terminal("Router"), 55000);
-		try {
-			router.start();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		//			router.start();	
-		//		} catch(java.lang.Exception e) {e.printStackTrace();}
-	}
 }

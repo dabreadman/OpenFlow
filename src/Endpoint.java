@@ -15,16 +15,20 @@ import java.net.SocketAddress;
  *
  */
 public class Endpoint extends Node {
-	static final int DEFAULT_SRC_PORT = 50000;
-	static final int DEFAULT_DST_PORT = 55000; // Port of the server
+	static final int CC_PORT = 40000;
+	static final int DEFAULT_SRC_PORT = 50000;			// Port of the endpoint
+	static final int DEFAULT_DST_PORT = 55000;          // Port of the router
 	static final String DEFAULT_DST_NODE = "localhost";	// Name of the host for the server
 
 	static final int HEADER_LENGTH = 2; // Fixed length of the header
-	static final int TYPE_POS = 0; // Position of the type within the header
-	static final int LENGTH_POS = 1;
+	static final int TYPE_POS = 0;      // Position of the type within the header
+	static final int LENGTH_POS = 1;    // Position of the length of payload
 
 	static final byte TYPE_UNKNOWN = 0;
 	static final byte TYPE_MESSAGE = 1;
+	static final byte TYPE_REQUEST = 2;
+	static final byte TYPE_MODIFY  = 3;
+	static final byte TYPE_HELLO = 4 ;
 
 	Terminal terminal;
 	InetSocketAddress dstAddress;
@@ -41,11 +45,11 @@ public class Endpoint extends Node {
 			port = srcPort;
 			socket= new DatagramSocket(srcPort);
 			dstAddress = new InetSocketAddress("",dstPort);
+			terminal.println("BUG: Terminal would not update unless a valid message was sent out.");
 			listener.go();
 		}
 		catch(java.lang.Exception e) {e.printStackTrace();}
 	}
-
 
 	/**
 	 * Handles packets
@@ -53,7 +57,6 @@ public class Endpoint extends Node {
 
 	public synchronized void onReceipt(DatagramPacket packet) {
 		try {
-			
 			String content;
 			byte[] data;
 			byte[] buffer;
@@ -65,10 +68,9 @@ public class Endpoint extends Node {
 			String s = content.substring(content.indexOf(";")+1);
 			switch(data[TYPE_POS]) {
 			case TYPE_MESSAGE:
-				terminal.println(content);
-				terminal.print(s);
+				terminal.println(content.substring(0,content.indexOf(";")));
+				terminal.print("From: "+s);
 				break;
-				//todo
 			default:
 				terminal.println("Unexpected packet" + packet.toString());
 			}
@@ -96,7 +98,6 @@ public class Endpoint extends Node {
 		//if input not valid
 		if(!input.contains(":") || !input.substring(0,input.indexOf(":")).matches("E[0-9]+")) {
 			terminal.println("Wrong format");
-			//sendMessage();
 		}
 
 		//elif input valid

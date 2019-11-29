@@ -42,7 +42,7 @@ public class Terminal {
 			textField = new JTextField(30);
 			textField.addActionListener(this);
 
-			textArea = new JTextArea(10, 30);
+			textArea = new JTextArea(20, 50);
 			textArea.setEditable(false);
 			JScrollPane scrollPane = new JScrollPane(textArea);
 
@@ -79,7 +79,7 @@ public class Terminal {
 		public void setPrompt(String prompt) {
 			label.setText(prompt);
 		}
-		
+
 		public void print(String output) {
 			textArea.append(output);
 		}

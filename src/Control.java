@@ -16,19 +16,20 @@ import java.util.HashMap;
  */
 public class Control extends Node {
 	static final int DEFAULT_DST_PORT = 50000;
-	static final int DEFAULT_ROUTER_PORT = 55000; // Port of the router(s)
+	static final int DEFAULT_ROUTER_PORT = 55000; // Port of the router
 	static final int DEFAULT_SRC_PORT = 40000;    // Port of the control
 	static final String DEFAULT_DST_NODE = "localhost";	// Name of the host for the server
 
 	static final int HEADER_LENGTH = 2; // Fixed length of the header
-	static final int TYPE_POS = 0; // Position of the type within the header
-	static final int LENGTH_POS = 1;
-	static final int ACKCODE_POS = 1; // Position of the acknowledgement type in the header
+	static final int TYPE_POS = 0;      // Position of the type within the header
+	static final int LENGTH_POS = 1;    // Position of the length of payload
+	static final int ACKCODE_POS = 1;   // Position of the acknowledgement type in the header
 
 	static final byte TYPE_UNKNOWN = 0;
 	static final byte TYPE_MESSAGE = 1;
 	static final byte TYPE_REQUEST = 2;
 	static final byte TYPE_MODIFY  = 3;
+	static final byte TYPE_HELLO = 4 ;
 
 	//Creating routing table
 	HashMap<InetSocketAddress,HashMap<String,InetSocketAddress>>hashOfRouters = 
@@ -93,15 +94,17 @@ public class Control extends Node {
 			byte[] data;
 			byte[] buffer;
 
-			data = packet.getData();			
+			data = packet.getData();	
+			buffer= new byte[data[LENGTH_POS]];
+			System.arraycopy(data, HEADER_LENGTH, buffer, 0, buffer.length);
+			content= new String(buffer);
 			switch(data[TYPE_POS]) {
 			case TYPE_REQUEST:
-				buffer= new byte[data[LENGTH_POS]];
-				System.arraycopy(data, HEADER_LENGTH, buffer, 0, buffer.length);
-				content= new String(buffer);
 				sendModify(new InetSocketAddress("",packet.getPort()),content);
 				break;
-				//todo
+			case TYPE_HELLO:
+				System.out.println(packet.getSocketAddress()+" said hello.");
+				break;
 			default:
 				terminal.println("Unexpected packet" + packet.toString());
 			}
@@ -119,64 +122,22 @@ public class Control extends Node {
 		byte[] buffer= null;
 		DatagramPacket packet= null;
 		HashMap<String,InetSocketAddress> temp = hashOfRouters.get(dstAddress);
+		if(temp!=null)
 		buffer = (dst+" "+temp.get(dst)).getBytes();
+		if(buffer!=null) {
 		data = new byte[HEADER_LENGTH+buffer.length];
 		data[TYPE_POS] = TYPE_MODIFY;
 		data[LENGTH_POS] = (byte)buffer.length;
 		System.arraycopy(buffer, 0, data, HEADER_LENGTH, buffer.length);
-		terminal.println("Sending modification for: "+temp.get(dst)+" to "+dstAddress);
+		//terminal.println("Sending modification for: "+temp.get(dst)+" to "+dstAddress);
 		packet= new DatagramPacket(data, data.length);
 		packet.setSocketAddress(dstAddress);
 		socket.send(packet);	
+		}
 	}
 	
-	/**
-	 * Sends a packet containing s as the data indicating work is finished
-	 */
-	public synchronized void replyFinished(InetSocketAddress dstAddress) throws Exception {
-		byte[] data= null;
-		byte[] buffer= null;
-		DatagramPacket packet= null;
-		//todo
-		String reply=" done ";
-		buffer=reply.getBytes();
-		data = new byte[HEADER_LENGTH+buffer.length];
-		data[TYPE_POS] = 0;
-		data[LENGTH_POS] = (byte) buffer.length;
-
-		System.arraycopy(buffer, 0, data, HEADER_LENGTH, buffer.length);
-		terminal.println("Sending packet...");
-		packet= new DatagramPacket(data, data.length);
-		packet.setSocketAddress(dstAddress);
-		socket.send(packet);
-	}
 	
 	public synchronized void start() {
 	}
 
-
-	/**
-	 * Test method
-	 *
-	 * Sends a packet to a given address
-	 */
-	public static void main(String[] args) {
-		try {
-			//			Terminal terminal= new Terminal("Client Starter");
-			//			int i =0;
-			//			while(true){
-			//				String input= terminal.read("Name: ");
-			//				terminal.println("Successfully started worker "+input+" on port "+(DEFAULT_ROUTER_PORT+i));
-			Control control = new Control(new Terminal("Control"), DEFAULT_SRC_PORT);
-			//				Runnable sender = () -> {
-			//					try {
-			//					control.wait();
-			//					} catch (Exception e) {
-			//						e.printStackTrace();
-			//					}
-			//				};
-			//				new Thread(sender).start();
-			//}
-		} catch(java.lang.Exception e) {e.printStackTrace();}
-	}
 }

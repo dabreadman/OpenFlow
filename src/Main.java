@@ -1,25 +1,24 @@
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class API {
+public class Main {
 
-	//	static final int DEFAULT_PORT = 50001;
+	
 	static final int CC_PORT = 40000;
-	static final int DEFAULT_ROUTER_PORT = 55000; // Port of the client
-	static final int DEFAULT_DST_PORT = 50000; // Port of the server
+	static final int DEFAULT_ROUTER_PORT = 55000; // Port of the router
+	static final int DEFAULT_DST_PORT = 50000;    // Port of the endpoint
 
 	public static void main(String[] args) throws Exception {
 
 		Thread thread1 = new Thread(){
 			public void run(){
-				Endpoint ep = new Endpoint(new Terminal("Endpoint 1"), 50001,55001);
+				Endpoint ep = new Endpoint(new Terminal("Endpoint 1"), DEFAULT_DST_PORT+1,DEFAULT_ROUTER_PORT+1);
 				try {
 					while(true) {
 						ep.sendMessage();
 						this.sleep(40);
 					}
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
+				} catch (Exception e) {				
 					e.printStackTrace();
 				}
 			}
@@ -28,14 +27,13 @@ public class API {
 
 		Thread thread2 = new Thread(){
 			public void run(){
-				Endpoint ep = new Endpoint(new Terminal("Endpoint 2"),  50002,55002);
+				Endpoint ep = new Endpoint(new Terminal("Endpoint 2"),  DEFAULT_DST_PORT+2,DEFAULT_ROUTER_PORT+2);
 				try {
 					while(true) {
 						ep.sendMessage();
 						this.sleep(40);
 					}
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
+				} catch (Exception e) {		
 					e.printStackTrace();
 				}
 			}
@@ -44,14 +42,13 @@ public class API {
 
 		Thread thread3 = new Thread(){
 			public void run(){
-				Endpoint ep= new Endpoint(new Terminal("Endpoint 3"),  50003,55003);
+				Endpoint ep= new Endpoint(new Terminal("Endpoint 3"),  DEFAULT_DST_PORT+3,DEFAULT_ROUTER_PORT+3);
 				try {
 					while(true) {
 						ep.sendMessage();
 						this.sleep(40);
 					}
 				} catch (Exception e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
@@ -68,7 +65,7 @@ public class API {
 		};
 		new Thread(ctl).start();
 
-		Router router = new Router(new Terminal("Router 0"),55000);
+		Router router = new Router(new Terminal("Router 0"), DEFAULT_ROUTER_PORT);
 		Runnable rtr = () -> {
 			try {
 				router.start();
@@ -78,7 +75,7 @@ public class API {
 		};
 		new Thread(rtr).start();
 
-		Router router1 = new Router(new Terminal("Router 1"), 55001);
+		Router router1 = new Router(new Terminal("Router 1"), DEFAULT_ROUTER_PORT+1);
 		Runnable rtr1 = () -> {
 			try {
 				router1.start();
@@ -89,7 +86,7 @@ public class API {
 		new Thread(rtr1).start();
 
 
-		Router router2 = new Router(new Terminal("Router 2"), 55002);
+		Router router2 = new Router(new Terminal("Router 2"), DEFAULT_ROUTER_PORT+2);
 		Runnable rtr2 = () -> {
 			try {
 				router2.start();
@@ -100,7 +97,7 @@ public class API {
 		new Thread(rtr2).start();
 
 
-		Router router3 = new Router(new Terminal("Router 3"), 55003);
+		Router router3 = new Router(new Terminal("Router 3"), DEFAULT_ROUTER_PORT+3);
 		Runnable rtr3 = () -> {
 			try {
 				router3.start();
@@ -109,10 +106,6 @@ public class API {
 			}
 		};
 		new Thread(rtr3).start();
-
-		//Router router4 = new Router(new Terminal("Bug Splat"),55004);
-
-
 
 	}
 

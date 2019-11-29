@@ -2,6 +2,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 
 /**
  *
@@ -14,31 +15,32 @@ import java.net.InetSocketAddress;
  *
  */
 public class Endpoint extends Node {
-	static final int CC_PORT = 60000;
-	static final int DEFAULT_DST_PORT = 50001; // Port of the server
+	static final int DEFAULT_SRC_PORT = 50000;
+	static final int DEFAULT_DST_PORT = 55000; // Port of the server
 	static final String DEFAULT_DST_NODE = "localhost";	// Name of the host for the server
 
 	static final int HEADER_LENGTH = 2; // Fixed length of the header
 	static final int TYPE_POS = 0; // Position of the type within the header
 	static final int LENGTH_POS = 1;
-	static final int ACKCODE_POS = 1; // Position of the acknowledgement type in the header
 
 	static final byte TYPE_UNKNOWN = 0;
-	static final byte TYPE_STRING = 1;
+	static final byte TYPE_MESSAGE = 1;
 
 	Terminal terminal;
 	InetSocketAddress dstAddress;
+	int port;
 
 	/**
 	 * Constructor
 	 *
 	 * Attempts to create socket at given port and create an InetSocketAddress for the destinations
 	 */
-	Endpoint(Terminal terminal, int dstPort, int srcPort) {
+	Endpoint(Terminal terminal, int srcPort, int dstPort) {
 		try {
 			this.terminal= terminal;
-			dstAddress= new InetSocketAddress("", dstPort);
+			port = srcPort;
 			socket= new DatagramSocket(srcPort);
+			dstAddress = new InetSocketAddress("",dstPort);
 			listener.go();
 		}
 		catch(java.lang.Exception e) {e.printStackTrace();}
@@ -51,16 +53,20 @@ public class Endpoint extends Node {
 
 	public synchronized void onReceipt(DatagramPacket packet) {
 		try {
+			
 			String content;
 			byte[] data;
 			byte[] buffer;
-			data = packet.getData();			
+			data = packet.getData();
+			buffer= new byte[data[LENGTH_POS]];
+			System.arraycopy(data, HEADER_LENGTH, buffer, 0, buffer.length);
+			content= new String(buffer);
+			
+			String s = content.substring(content.indexOf(";")+1);
 			switch(data[TYPE_POS]) {
-			case TYPE_STRING:
-				buffer= new byte[data[LENGTH_POS]];
-				System.arraycopy(data, HEADER_LENGTH, buffer, 0, buffer.length);
-				content= new String(buffer);
+			case TYPE_MESSAGE:
 				terminal.println(content);
+				terminal.print(s);
 				break;
 				//todo
 			default:
@@ -80,44 +86,27 @@ public class Endpoint extends Node {
 		byte[] buffer= null;
 		DatagramPacket packet= null;
 		String input = null;
-		//todo
+		input = terminal.read("Enter Message:")+";E"+(port-50000);
 		buffer = input.getBytes();
 		data = new byte[HEADER_LENGTH+buffer.length];
-		data[TYPE_POS] = TYPE_POS;
+		data[TYPE_POS] = TYPE_MESSAGE;
 		data[LENGTH_POS] = (byte)buffer.length;
 		System.arraycopy(buffer, 0, data, HEADER_LENGTH, buffer.length);
 
-		packet= new DatagramPacket(data, data.length);
-		packet.setSocketAddress(dstAddress);
-		socket.send(packet);
-		terminal.println("Work sent");
-		wait();
+		//if input not valid
+		if(!input.contains(":") || !input.substring(0,input.indexOf(":")).matches("E[0-9]+")) {
+			terminal.println("Wrong format");
+			//sendMessage();
+		}
+
+		//elif input valid
+		else {
+			packet= new DatagramPacket(data, data.length);
+			InetSocketAddress temp = dstAddress;
+			packet.setSocketAddress(temp);
+			socket.send(packet);
+			terminal.println("Work sent to "+dstAddress);
+		}
 	}	
 
-	/**
-	 * Test method
-	 *
-	 * Sends a packet to a given address
-	 */
-	public static void main(String[] args) {
-		try {
-			//			Endpoint Endpoint = new Endpoint(new Terminal("Command and Router"), DEFAULT_DST_PORT, CC_PORT);
-			//			Runnable sender = () -> {
-			//				try {
-			//					long end=System.currentTimeMillis()+60*10;
-			//					while(true) {
-			//						if(System.currentTimeMillis()>end) {
-			//							Endpoint.sendMessage();
-			//							end=System.currentTimeMillis()+60*10;
-			//						}
-			//					}
-			//
-			//				} catch (Exception e) {
-			//					e.printStackTrace();
-			//				}
-			//			};
-			//			new Thread(sender).start();
-
-		} catch(java.lang.Exception e) {e.printStackTrace();}
-	}
 }

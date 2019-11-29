@@ -1,6 +1,8 @@
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
+import java.util.HashMap;
 
 /**
  *
@@ -13,8 +15,9 @@ import java.net.InetSocketAddress;
  *
  */
 public class Control extends Node {
-	static final int DEFAULT_SRC_PORT = 50002; // Port of the client
-	static final int DEFAULT_DST_PORT = 50001; // Port of the server
+	static final int DEFAULT_DST_PORT = 50000;
+	static final int DEFAULT_ROUTER_PORT = 55000; // Port of the router(s)
+	static final int DEFAULT_SRC_PORT = 40000;    // Port of the control
 	static final String DEFAULT_DST_NODE = "localhost";	// Name of the host for the server
 
 	static final int HEADER_LENGTH = 2; // Fixed length of the header
@@ -23,24 +26,58 @@ public class Control extends Node {
 	static final int ACKCODE_POS = 1; // Position of the acknowledgement type in the header
 
 	static final byte TYPE_UNKNOWN = 0;
-	static final byte TYPE_STRING = 1; // Indicating a string payload
+	static final byte TYPE_MESSAGE = 1;
+	static final byte TYPE_REQUEST = 2;
+	static final byte TYPE_MODIFY  = 3;
+
+	//Creating routing table
+	HashMap<InetSocketAddress,HashMap<String,InetSocketAddress>>hashOfRouters = 
+			new HashMap<InetSocketAddress,HashMap<String,InetSocketAddress>>();
+
 
 	Terminal terminal;
-	InetSocketAddress dstAddress;
-	String name;
 
 	/**
 	 * Constructor
 	 *
 	 * Attempts to create socket at given port and create an InetSocketAddress for the destinations
 	 */
-	Control(Terminal terminal, int dstPort, int srcPort,String name) {
+	Control(Terminal terminal, int srcPort) {
 		try {
 			this.terminal= terminal;
-			this.name=name;
-			dstAddress= new InetSocketAddress("", dstPort);
 			socket= new DatagramSocket(srcPort);
 			listener.go();
+
+			//Routing table for R0
+			HashMap<String, InetSocketAddress> R0 = new HashMap<String,InetSocketAddress>();
+			R0.put("E1",new InetSocketAddress("",DEFAULT_ROUTER_PORT+1));
+			R0.put("E2",new InetSocketAddress("",DEFAULT_ROUTER_PORT+2));
+			R0.put("E3",new InetSocketAddress("",DEFAULT_ROUTER_PORT+3));
+
+			//Hard coding routing table for each routers
+			//Routing table for R1
+			HashMap<String, InetSocketAddress> R1 = new HashMap<String,InetSocketAddress>();
+			R1.put("E1",new InetSocketAddress("",DEFAULT_DST_PORT+1));
+			R1.put("E2",new InetSocketAddress("",DEFAULT_ROUTER_PORT));
+			R1.put("E3",new InetSocketAddress("",DEFAULT_ROUTER_PORT));
+
+			//Routing table for R2
+			HashMap<String, InetSocketAddress> R2 = new HashMap<String,InetSocketAddress>();
+			R2.put("E1",new InetSocketAddress("",DEFAULT_ROUTER_PORT));
+			R2.put("E2",new InetSocketAddress("",DEFAULT_DST_PORT+2));
+			R2.put("E3",new InetSocketAddress("",DEFAULT_ROUTER_PORT));
+
+			//Routing table for R3
+			HashMap<String, InetSocketAddress> R3 = new HashMap<String,InetSocketAddress>();
+			R3.put("E1",new InetSocketAddress("",DEFAULT_ROUTER_PORT));
+			R3.put("E2",new InetSocketAddress("",DEFAULT_ROUTER_PORT));
+			R3.put("E3",new InetSocketAddress("",DEFAULT_DST_PORT+3));
+
+			hashOfRouters.put(new InetSocketAddress("",DEFAULT_ROUTER_PORT+0), R0);
+			hashOfRouters.put(new InetSocketAddress("",DEFAULT_ROUTER_PORT+1), R1);
+			hashOfRouters.put(new InetSocketAddress("",DEFAULT_ROUTER_PORT+2), R2);
+			hashOfRouters.put(new InetSocketAddress("",DEFAULT_ROUTER_PORT+3), R3);
+
 		}
 		catch(java.lang.Exception e) {e.printStackTrace();}
 	}
@@ -58,13 +95,13 @@ public class Control extends Node {
 
 			data = packet.getData();			
 			switch(data[TYPE_POS]) {
-			case TYPE_STRING:
+			case TYPE_REQUEST:
 				buffer= new byte[data[LENGTH_POS]];
 				System.arraycopy(data, HEADER_LENGTH, buffer, 0, buffer.length);
 				content= new String(buffer);
-				terminal.println(content);
+				sendModify(new InetSocketAddress("",packet.getPort()),content);
 				break;
-			//todo
+				//todo
 			default:
 				terminal.println("Unexpected packet" + packet.toString());
 			}
@@ -77,43 +114,44 @@ public class Control extends Node {
 	 * Sender Method
 	 *
 	 */
-	public synchronized void sendMessage() throws Exception {
+	public synchronized void sendModify(InetSocketAddress dstAddress, String dst) throws Exception {
 		byte[] data= null;
 		byte[] buffer= null;
 		DatagramPacket packet= null;
-		String input;
-		input= terminal.read("Enter anything to volunteer: ");
-		//todo
-			data = new byte[HEADER_LENGTH];
-			data[TYPE_POS] = 0;
-			data[LENGTH_POS] = 0;
-			terminal.println("Sending packet...");
-			packet= new DatagramPacket(data, data.length);
-			packet.setSocketAddress(dstAddress);
-			socket.send(packet);
-			terminal.println("Volunteered");		
+		HashMap<String,InetSocketAddress> temp = hashOfRouters.get(dstAddress);
+		buffer = (dst+" "+temp.get(dst)).getBytes();
+		data = new byte[HEADER_LENGTH+buffer.length];
+		data[TYPE_POS] = TYPE_MODIFY;
+		data[LENGTH_POS] = (byte)buffer.length;
+		System.arraycopy(buffer, 0, data, HEADER_LENGTH, buffer.length);
+		terminal.println("Sending modification for: "+temp.get(dst)+" to "+dstAddress);
+		packet= new DatagramPacket(data, data.length);
+		packet.setSocketAddress(dstAddress);
+		socket.send(packet);	
 	}
-
+	
 	/**
 	 * Sends a packet containing s as the data indicating work is finished
 	 */
-	public synchronized void replyFinished(String s) throws Exception {
+	public synchronized void replyFinished(InetSocketAddress dstAddress) throws Exception {
 		byte[] data= null;
 		byte[] buffer= null;
 		DatagramPacket packet= null;
 		//todo
-		String reply=name+" done "+s;
+		String reply=" done ";
 		buffer=reply.getBytes();
 		data = new byte[HEADER_LENGTH+buffer.length];
 		data[TYPE_POS] = 0;
 		data[LENGTH_POS] = (byte) buffer.length;
-		
+
 		System.arraycopy(buffer, 0, data, HEADER_LENGTH, buffer.length);
 		terminal.println("Sending packet...");
 		packet= new DatagramPacket(data, data.length);
 		packet.setSocketAddress(dstAddress);
 		socket.send(packet);
-		sendMessage();
+	}
+	
+	public synchronized void start() {
 	}
 
 
@@ -122,23 +160,23 @@ public class Control extends Node {
 	 *
 	 * Sends a packet to a given address
 	 */
-//	public static void main(String[] args) {
-//		try {
-//			Terminal terminal= new Terminal("Client Starter");
-//			int i =0;
-//			while(true){
-//				String input= terminal.read("Name: ");
-//				terminal.println("Successfully started worker "+input+" on port "+(DEFAULT_SRC_PORT+i));
-//				Control control = new Control(new Terminal(input), DEFAULT_DST_PORT, DEFAULT_SRC_PORT+i++,input);
-//				Runnable sender = () -> {
-//					try {
-//						control.volunteer();
-//					} catch (Exception e) {
-//						e.printStackTrace();
-//					}
-//				};
-//				new Thread(sender).start();
-//			}
-//		} catch(java.lang.Exception e) {e.printStackTrace();}
-//	}
+	public static void main(String[] args) {
+		try {
+			//			Terminal terminal= new Terminal("Client Starter");
+			//			int i =0;
+			//			while(true){
+			//				String input= terminal.read("Name: ");
+			//				terminal.println("Successfully started worker "+input+" on port "+(DEFAULT_ROUTER_PORT+i));
+			Control control = new Control(new Terminal("Control"), DEFAULT_SRC_PORT);
+			//				Runnable sender = () -> {
+			//					try {
+			//					control.wait();
+			//					} catch (Exception e) {
+			//						e.printStackTrace();
+			//					}
+			//				};
+			//				new Thread(sender).start();
+			//}
+		} catch(java.lang.Exception e) {e.printStackTrace();}
+	}
 }

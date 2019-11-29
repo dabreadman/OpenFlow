@@ -13,7 +13,7 @@ public abstract class Node {
 	Node() {
 		latch= new CountDownLatch(1);
 		listener= new Listener();
-		listener.setDaemon(true);
+	//	listener.setDaemon(true);
 		listener.start();
 	}
 	

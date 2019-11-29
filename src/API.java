@@ -7,13 +7,13 @@ public class API {
 	static final int DEFAULT_DST_PORT = 50001; // Port of the server
 
 	public static void main(String[] args) throws Exception {
-		CAndC CAndC = new CAndC(new Terminal("Command and Control"), DEFAULT_DST_PORT, CC_PORT);
+		Endpoint Endpoint = new Endpoint(new Terminal("Command and Router"), DEFAULT_DST_PORT, CC_PORT);
 		Runnable CC = () -> {
 			try {
 				long end=System.currentTimeMillis()+60*10;
 				while(true) {
 					if(System.currentTimeMillis()>end) {
-						CAndC.sendMessage();
+						Endpoint.sendMessage();
 						end=System.currentTimeMillis()+60*10;
 					}
 				}
@@ -24,10 +24,10 @@ public class API {
 		};
 		new Thread(CC).start();
 
-		Broker broker = new Broker(new Terminal("Broker"), DEFAULT_PORT);
+		Router router = new Router(new Terminal("Router"), DEFAULT_PORT);
 		Runnable brk = () -> {
 			try {
-				broker.start();
+				router.start();
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -39,10 +39,10 @@ public class API {
 		while(true){
 			String input= terminal.read("Name: ");
 			terminal.println("Successfully started worker "+input+" on port "+(DEFAULT_SRC_PORT+i));
-			Worker worker = new Worker(new Terminal(input), DEFAULT_DST_PORT, DEFAULT_SRC_PORT+i++,input);
+			Control control = new Control(new Terminal(input), DEFAULT_DST_PORT, DEFAULT_SRC_PORT+i++,input);
 			Runnable wkr = () -> {
 				try {
-						worker.volunteer();
+						control.volunteer();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
